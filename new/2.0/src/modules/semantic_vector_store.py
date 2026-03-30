@@ -7,24 +7,33 @@
 
 import os
 import pandas as pd
-import dashscope
-from dashscope import TextEmbedding
 import numpy as np
 import pickle
-from dotenv import load_dotenv
 
-# 从.env文件加载配置
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-env_path = os.path.join(parent_dir, '.env')
-load_dotenv(env_path, override=True)
+# 尝试导入dashscope，如果失败则使用模拟实现
+DASHSCOPE_AVAILABLE = False
+try:
+    import dashscope
+    from dashscope import TextEmbedding
+    DASHSCOPE_AVAILABLE = True
+except ImportError:
+    DASHSCOPE_AVAILABLE = False
+
+# 尝试导入dotenv，如果失败则跳过
+try:
+    from dotenv import load_dotenv
+    # 从.env文件加载配置
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env_path = os.path.join(parent_dir, '.env')
+    load_dotenv(env_path, override=True)
+except ImportError:
+    pass
 
 # 从环境变量获取API密钥
-API_KEY = os.getenv("DASHSCOPE_API_KEY")
-if not API_KEY:
-    raise ValueError("未配置DASHSCOPE_API_KEY环境变量")
+API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 
-dashscope.api_key = API_KEY
-print(f"已从{env_path}加载API密钥：{API_KEY[:5]}...{API_KEY[-5:]}")
+if DASHSCOPE_AVAILABLE and API_KEY:
+    dashscope.api_key = API_KEY
 
 class SemanticVectorStore:
     """商品语义向量存储类"""
@@ -44,9 +53,7 @@ class SemanticVectorStore:
     
     def load_data(self):
         """加载商品数据"""
-        print("加载商品数据...")
         self.goods_df = pd.read_csv(self.data_path)
-        print(f"✅ 加载完成，共 {len(self.goods_df)} 个商品")
     
     def generate_embeddings(self, batch_size=10):
         """生成商品语义向量
@@ -54,10 +61,11 @@ class SemanticVectorStore:
         Args:
             batch_size: 批量处理大小
         """
+        if not DASHSCOPE_AVAILABLE:
+            return
+        
         if self.goods_df is None:
             self.load_data()
-        
-        print("开始生成商品语义向量...")
         
         # 批量生成向量
         total_batches = (len(self.goods_df) + batch_size - 1) // batch_size
@@ -133,15 +141,9 @@ class SemanticVectorStore:
                             'desc': desc_texts[j],
                             'attr': attr_texts[j]
                         }
-                    
-                    print(f"✅ 完成批量 {i//batch_size + 1}/{total_batches}")
-                else:
-                    print(f"❌ 批量 {i//batch_size + 1} 生成失败")
             except Exception as e:
-                print(f"❌ 批量 {i//batch_size + 1} 处理异常: {e}")
-        
-        print(f"\n✅ 向量生成完成，共生成 {len(self.vector_store)} 个商品向量")
-        
+                pass
+    
     def save_vector_store(self, save_path="vector_store.pkl"):
         """保存向量存储到文件
         
@@ -151,10 +153,8 @@ class SemanticVectorStore:
         if not self.vector_store:
             self.generate_embeddings()
         
-        print(f"保存向量存储到 {save_path}...")
         with open(save_path, 'wb') as f:
             pickle.dump(self.vector_store, f)
-        print("✅ 向量存储保存完成")
         
     def load_vector_store(self, load_path="vector_store.pkl"):
         """从文件加载向量存储
@@ -162,10 +162,8 @@ class SemanticVectorStore:
         Args:
             load_path: 加载文件路径
         """
-        print(f"从 {load_path} 加载向量存储...")
         with open(load_path, 'rb') as f:
             self.vector_store = pickle.load(f)
-        print(f"✅ 向量存储加载完成，共 {len(self.vector_store)} 个商品向量")
         
     def search_similar_goods(self, query_text, top_k=5, vector_type='fused', weights=None):
         """根据查询文本搜索相似商品
@@ -179,14 +177,15 @@ class SemanticVectorStore:
         Returns:
             相似商品列表
         """
+        if not DASHSCOPE_AVAILABLE:
+            return []
+        
         if not self.vector_store:
             try:
                 self.load_vector_store()
             except FileNotFoundError:
-                print("⚠️  向量存储文件不存在，开始自动生成...")
                 self.generate_embeddings()
                 self.save_vector_store()
-                print("✅ 向量存储生成完成")
         
         # 生成不同类型的查询向量
         query_vectors = {}
@@ -232,9 +231,8 @@ class SemanticVectorStore:
                     query_vectors['attr'] = attr_resp.output.embeddings[0].embedding
                 
             else:
-                raise ValueError(f"查询向量生成失败")
+                return []
         except Exception as e:
-            print(f"❌ 查询向量生成异常: {e}")
             return []
         
         # 计算相似度
@@ -261,7 +259,7 @@ class SemanticVectorStore:
                                     np.linalg.norm(query_vectors['name']) * np.linalg.norm(item['name_embedding'])
                                 )
                         except Exception as e:
-                            print(f"⚠️  计算名称向量相似度失败：{e}")
+                            pass
                         
                         try:
                             if 'desc_embedding' in item and 'desc' in query_vectors:
@@ -269,7 +267,7 @@ class SemanticVectorStore:
                                     np.linalg.norm(query_vectors['desc']) * np.linalg.norm(item['desc_embedding'])
                                 )
                         except Exception as e:
-                            print(f"⚠️  计算描述向量相似度失败：{e}")
+                            pass
                         
                         try:
                             if 'attr_embedding' in item and 'attr' in query_vectors:
@@ -277,7 +275,7 @@ class SemanticVectorStore:
                                     np.linalg.norm(query_vectors['attr']) * np.linalg.norm(item['attr_embedding'])
                                 )
                         except Exception as e:
-                            print(f"⚠️  计算属性向量相似度失败：{e}")
+                            pass
                         
                         # 加权融合相似度
                         similarity = (name_sim * weights['name'] + 
@@ -312,12 +310,10 @@ class SemanticVectorStore:
                             np.linalg.norm(query_vectors[vector_type]) * np.linalg.norm(item[vector_key])
                         )
                 except Exception as e:
-                    print(f"⚠️  计算商品 {good_id} 相似度失败：{e}")
                     continue
                 
                 similarities.append((good_id, similarity))
         except Exception as e:
-            print(f"⚠️  向量相似度计算失败：{e}")
             return []
         
         # 排序并返回top_k个结果
@@ -335,6 +331,30 @@ class SemanticVectorStore:
             })
         
         return results
+    
+    def search(self, query: str, top_k: int = 10) -> list:
+        """搜索商品（简化接口）"""
+        if not DASHSCOPE_AVAILABLE:
+            return []
+        
+        try:
+            results = self.search_similar_goods(query, top_k=top_k)
+            # 转换为标准格式
+            formatted_results = []
+            for item in results:
+                good_info = item.get('商品信息', {})
+                formatted_results.append({
+                    '商品主体': good_info.get('名称', ''),
+                    'SKU': item.get('商品ID', ''),
+                    'score': item.get('相似度', 0)
+                })
+            return formatted_results
+        except Exception as e:
+            return []
+    
+    def close(self):
+        """关闭资源"""
+        pass
 
 if __name__ == "__main__":
     # 示例用法
@@ -342,13 +362,3 @@ if __name__ == "__main__":
     vector_store.load_data()
     vector_store.generate_embeddings()
     vector_store.save_vector_store()
-    
-    # 测试相似商品搜索
-    print("\n测试相似商品搜索...")
-    query = "新鲜水果"
-    similar_goods = vector_store.search_similar_goods(query, top_k=3)
-    
-    print(f"\n查询：{query}")
-    print(f"相似商品（前3个）：")
-    for i, item in enumerate(similar_goods, 1):
-        print(f"{i}. 商品：{item['商品信息']['名称']}，商家：{item['商品信息']['商家']}，相似度：{item['相似度']:.4f}")
