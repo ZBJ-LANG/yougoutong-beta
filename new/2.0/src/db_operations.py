@@ -1,5 +1,5 @@
 import sqlite3
-from passlib.hash import bcrypt
+import hashlib
 import datetime
 import os
 
@@ -9,13 +9,13 @@ DB_PATH = "ecommerce_users.db"
 
 # 🔴 确保hash_password函数在register_user_to_db之前定义
 def hash_password(password: str) -> str:
-    """密码哈希（bcrypt，不可逆）"""
-    return bcrypt.hash(password)
+    """密码哈希（使用SHA256，简单但足够测试用）"""
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 
 def verify_password(password: str, hashed_password: str) -> bool:
     """验证密码（对比哈希值）"""
-    return bcrypt.verify(password, hashed_password)
+    return hash_password(password) == hashed_password
 
 
 def init_db():
