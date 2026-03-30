@@ -3,14 +3,18 @@ LangChain Agent 框架 - 融合通义千问大模型
 角色：生鲜、电子数码、服装穿搭、美妆护肤
 """
 import os
-from dotenv import load_dotenv
 from typing import Optional, List, Any, Dict
 import dashscope
 
-# 显式指定.env文件路径，并强制覆盖已存在的环境变量
-env_path = os.path.join(os.path.dirname(__file__), '.env')
-load_dotenv(env_path, override=True)
-print(f"已从{env_path}加载配置，DASHSCOPE_API_KEY已设置")
+# 尝试导入dotenv，如果失败则使用环境变量
+try:
+    from dotenv import load_dotenv
+    # 显式指定.env文件路径，并强制覆盖已存在的环境变量
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    load_dotenv(env_path, override=True)
+    print(f"已从{env_path}加载配置，DASHSCOPE_API_KEY已设置")
+except ImportError:
+    print("未找到dotenv模块，将直接使用环境变量")
 
 
 class QwenLLM:
