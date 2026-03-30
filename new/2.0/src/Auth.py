@@ -1,5 +1,4 @@
 import streamlit as st
-import bcrypt
 from db_operations import get_user_by_username, register_user_to_db, verify_password
 
 
