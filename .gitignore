@@ -1,0 +1,41 @@
+# 忽略所有数据文件和大型文件
+new/2.0/data/
+new/2.0/models/
+new/sheng/
+new/5.0/
+
+# 忽略临时文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# 忽略环境文件
+.env
+
+# 忽略日志文件
+*.log
+
+# 忽略临时目录
+temp/
+
+# 忽略测试文件
+test_*.py
+*_test.py
+
+# 忽略IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
+
+# 忽略其他不需要的文件
+*.md
+*.txt
+!requirements.txt
