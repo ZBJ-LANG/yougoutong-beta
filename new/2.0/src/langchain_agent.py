@@ -4,7 +4,14 @@ LangChain Agent 框架 - 融合通义千问大模型
 """
 import os
 from typing import Optional, List, Any, Dict
-import dashscope
+
+# 尝试导入dashscope，如果失败则使用模拟实现
+try:
+    import dashscope
+    DASHSCOPE_AVAILABLE = True
+except ImportError:
+    DASHSCOPE_AVAILABLE = False
+    print("未找到dashscope模块，将使用模拟实现")
 
 # 尝试导入dotenv，如果失败则使用环境变量
 try:
@@ -33,6 +40,9 @@ class QwenLLM:
         **kwargs: Any,
     ) -> str:
         """调用模型"""
+        if not DASHSCOPE_AVAILABLE:
+            return "⚠️ 系统提示：dashscope模块未安装，无法调用通义千问模型。请确保已安装dashscope依赖。"
+        
         try:
             api_key = os.getenv("DASHSCOPE_API_KEY")
             if not api_key:
