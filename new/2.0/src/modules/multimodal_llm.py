@@ -8,8 +8,15 @@
 import os
 import json
 from typing import Dict, Any, List, Optional
-import dashscope
-from dashscope import MultiModalConversation
+
+# 尝试导入dashscope，如果失败则使用模拟实现
+DASHSCOPE_AVAILABLE = False
+try:
+    import dashscope
+    from dashscope import MultiModalConversation
+    DASHSCOPE_AVAILABLE = True
+except ImportError:
+    DASHSCOPE_AVAILABLE = False
 
 class MultimodalLLM:
     """多模态大语言模型"""
@@ -20,6 +27,9 @@ class MultimodalLLM:
         Args:
             api_key: DashScope API密钥，默认从环境变量读取
         """
+        if not DASHSCOPE_AVAILABLE:
+            return
+        
         if api_key:
             dashscope.api_key = api_key
         elif not dashscope.api_key:
@@ -34,7 +44,6 @@ class MultimodalLLM:
                             break
         
         self.model = "qwen-vl-plus"
-        print(f"✅ 多模态LLM初始化完成，使用模型: {self.model}")
     
     def analyze_image(self, 
                      image_path: str, 
@@ -48,6 +57,9 @@ class MultimodalLLM:
         Returns:
             图片描述
         """
+        if not DASHSCOPE_AVAILABLE:
+            return "多模态LLM不可用"
+        
         import base64
         
         # 将图片转换为base64
@@ -106,6 +118,13 @@ class MultimodalLLM:
         Returns:
             商品信息字典
         """
+        if not DASHSCOPE_AVAILABLE:
+            return {
+                "product_type": "unknown",
+                "specific_name": "unknown",
+                "error": "多模态LLM不可用"
+            }
+        
         # 根据类别选择不同的prompt
         if category == "fresh" or category == "生鲜":
             # 生鲜专用prompt
@@ -171,6 +190,9 @@ class MultimodalLLM:
         Returns:
             比较结果
         """
+        if not DASHSCOPE_AVAILABLE:
+            return "多模态LLM不可用"
+        
         messages = [
             {
                 "role": "user",
@@ -214,6 +236,12 @@ class MultimodalLLM:
         Returns:
             推荐信息字典
         """
+        if not DASHSCOPE_AVAILABLE:
+            return {
+                "recommendation_reason": "多模态LLM不可用",
+                "error": "多模态LLM不可用"
+            }
+        
         prompt = f"""根据用户上传的图片和以下偏好："{user_preference}"
         
 请分析这张图片中的商品风格，并给出推荐理由。
@@ -244,21 +272,30 @@ class MultimodalRAG:
     
     def __init__(self):
         """初始化多模态RAG系统"""
-        from modules.multimodal_embedding import MultimodalVectorDB
-        from modules.fusion_service import FusionService
+        if not DASHSCOPE_AVAILABLE:
+            self.multimodal_vdb = None
+            self.llm = None
+            self.text_rag = None
+            return
         
-        # 初始化组件
-        self.multimodal_vdb = MultimodalVectorDB(
-            collection_name="multimodal_products",
-            persist_directory="../models/multimodal_vector_db"
-        )
-        
-        self.llm = MultimodalLLM()
-        
-        # 传统文本RAG
-        self.text_rag = FusionService(category="clothing")
-        
-        print("✅ 多模态RAG系统初始化完成")
+        try:
+            from modules.multimodal_embedding import MultimodalVectorDB
+            from modules.fusion_service import FusionService
+            
+            # 初始化组件
+            self.multimodal_vdb = MultimodalVectorDB(
+                collection_name="multimodal_products",
+                persist_directory="../models/multimodal_vector_db"
+            )
+            
+            self.llm = MultimodalLLM()
+            
+            # 传统文本RAG
+            self.text_rag = FusionService(category="clothing")
+        except Exception as e:
+            self.multimodal_vdb = None
+            self.llm = None
+            self.text_rag = None
     
     def search(self, 
                query: str = None,
@@ -276,28 +313,37 @@ class MultimodalRAG:
         Returns:
             搜索结果列表
         """
+        if not DASHSCOPE_AVAILABLE:
+            return []
+        
         results = []
         
         # 1. 文本搜索
-        if query:
-            text_results = self.text_rag.query(query, top_k=top_k, strategy="vdb_only")
-            results.extend(text_results)
+        if query and self.text_rag:
+            try:
+                text_results = self.text_rag.query(query, top_k=top_k, strategy="vdb_only")
+                results.extend(text_results)
+            except Exception as e:
+                pass
         
         # 2. 多模态搜索
-        if use_multimodal and query_image_path:
-            # 先用VL模型分析图片
-            image_analysis = self.llm.analyze_image(
-                query_image_path,
-                "请提取这张商品图片的关键特征词"
-            )
-            
-            # 用分析结果进行搜索
-            multimodal_results = self.multimodal_vdb.search(
-                query=image_analysis,
-                query_image_path=query_image_path,
-                top_k=top_k
-            )
-            results.extend(multimodal_results)
+        if use_multimodal and query_image_path and self.llm and self.multimodal_vdb:
+            try:
+                # 先用VL模型分析图片
+                image_analysis = self.llm.analyze_image(
+                    query_image_path,
+                    "请提取这张商品图片的关键特征词"
+                )
+                
+                # 用分析结果进行搜索
+                multimodal_results = self.multimodal_vdb.search(
+                    query=image_analysis,
+                    query_image_path=query_image_path,
+                    top_k=top_k
+                )
+                results.extend(multimodal_results)
+            except Exception as e:
+                pass
         
         # 去重和排序
         return self._deduplicate_and_rank(results, top_k)
@@ -330,15 +376,21 @@ class MultimodalRAG:
         Returns:
             推荐回复
         """
+        if not DASHSCOPE_AVAILABLE:
+            return "多模态LLM不可用"
+        
         context = []
         
         # 如果有图片，先分析图片
-        if query_image_path:
-            image_info = self.llm.generate_recommendation_based_on_image(
-                query_image_path,
-                user_input
-            )
-            context.append(f"用户上传的图片分析: {image_info}")
+        if query_image_path and self.llm:
+            try:
+                image_info = self.llm.generate_recommendation_based_on_image(
+                    query_image_path,
+                    user_input
+                )
+                context.append(f"用户上传的图片分析: {image_info}")
+            except Exception as e:
+                pass
         
         # 搜索相关商品
         search_results = self.search(
