@@ -8,15 +8,8 @@
 import os
 import json
 from typing import Dict, Any, List, Optional
-
-# 尝试导入dashscope，如果失败则使用模拟实现
-try:
-    import dashscope
-    from dashscope import MultiModalConversation
-    DASHSCOPE_AVAILABLE = True
-except ImportError:
-    DASHSCOPE_AVAILABLE = False
-    print("未找到dashscope模块，将使用模拟实现")
+import dashscope
+from dashscope import MultiModalConversation
 
 class MultimodalLLM:
     """多模态大语言模型"""
@@ -27,10 +20,6 @@ class MultimodalLLM:
         Args:
             api_key: DashScope API密钥，默认从环境变量读取
         """
-        if not DASHSCOPE_AVAILABLE:
-            print("⚠️ 多模态LLM初始化失败：dashscope模块未安装")
-            return
-        
         if api_key:
             dashscope.api_key = api_key
         elif not dashscope.api_key:
@@ -59,9 +48,6 @@ class MultimodalLLM:
         Returns:
             图片描述
         """
-        if not DASHSCOPE_AVAILABLE:
-            return "⚠️ 多模态LLM未安装，无法分析图片"
-        
         import base64
         
         # 将图片转换为base64
@@ -120,9 +106,6 @@ class MultimodalLLM:
         Returns:
             商品信息字典
         """
-        if not DASHSCOPE_AVAILABLE:
-            return {"error": "多模态LLM未安装，无法分析图片"}
-        
         # 根据类别选择不同的prompt
         if category == "fresh" or category == "生鲜":
             # 生鲜专用prompt
@@ -188,9 +171,6 @@ class MultimodalLLM:
         Returns:
             比较结果
         """
-        if not DASHSCOPE_AVAILABLE:
-            return "⚠️ 多模态LLM未安装，无法比较图片"
-        
         messages = [
             {
                 "role": "user",
@@ -234,9 +214,6 @@ class MultimodalLLM:
         Returns:
             推荐信息字典
         """
-        if not DASHSCOPE_AVAILABLE:
-            return {"error": "多模态LLM未安装，无法分析图片"}
-        
         prompt = f"""根据用户上传的图片和以下偏好："{user_preference}"
         
 请分析这张图片中的商品风格，并给出推荐理由。
@@ -267,24 +244,21 @@ class MultimodalRAG:
     
     def __init__(self):
         """初始化多模态RAG系统"""
-        try:
-            from modules.multimodal_embedding import MultimodalVectorDB
-            from modules.fusion_service import FusionService
-            
-            # 初始化组件
-            self.multimodal_vdb = MultimodalVectorDB(
-                collection_name="multimodal_products",
-                persist_directory="../models/multimodal_vector_db"
-            )
-            
-            self.llm = MultimodalLLM()
-            
-            # 传统文本RAG
-            self.text_rag = FusionService(category="clothing")
-            
-            print("✅ 多模态RAG系统初始化完成")
-        except Exception as e:
-            print(f"⚠️ 多模态RAG系统初始化失败: {e}")
+        from modules.multimodal_embedding import MultimodalVectorDB
+        from modules.fusion_service import FusionService
+        
+        # 初始化组件
+        self.multimodal_vdb = MultimodalVectorDB(
+            collection_name="multimodal_products",
+            persist_directory="../models/multimodal_vector_db"
+        )
+        
+        self.llm = MultimodalLLM()
+        
+        # 传统文本RAG
+        self.text_rag = FusionService(category="clothing")
+        
+        print("✅ 多模态RAG系统初始化完成")
     
     def search(self, 
                query: str = None,
@@ -306,30 +280,24 @@ class MultimodalRAG:
         
         # 1. 文本搜索
         if query:
-            try:
-                text_results = self.text_rag.query(query, top_k=top_k, strategy="vdb_only")
-                results.extend(text_results)
-            except Exception as e:
-                print(f"文本搜索失败: {e}")
+            text_results = self.text_rag.query(query, top_k=top_k, strategy="vdb_only")
+            results.extend(text_results)
         
         # 2. 多模态搜索
         if use_multimodal and query_image_path:
-            try:
-                # 先用VL模型分析图片
-                image_analysis = self.llm.analyze_image(
-                    query_image_path,
-                    "请提取这张商品图片的关键特征词"
-                )
-                
-                # 用分析结果进行搜索
-                multimodal_results = self.multimodal_vdb.search(
-                    query=image_analysis,
-                    query_image_path=query_image_path,
-                    top_k=top_k
-                )
-                results.extend(multimodal_results)
-            except Exception as e:
-                print(f"多模态搜索失败: {e}")
+            # 先用VL模型分析图片
+            image_analysis = self.llm.analyze_image(
+                query_image_path,
+                "请提取这张商品图片的关键特征词"
+            )
+            
+            # 用分析结果进行搜索
+            multimodal_results = self.multimodal_vdb.search(
+                query=image_analysis,
+                query_image_path=query_image_path,
+                top_k=top_k
+            )
+            results.extend(multimodal_results)
         
         # 去重和排序
         return self._deduplicate_and_rank(results, top_k)
@@ -366,30 +334,24 @@ class MultimodalRAG:
         
         # 如果有图片，先分析图片
         if query_image_path:
-            try:
-                image_info = self.llm.generate_recommendation_based_on_image(
-                    query_image_path,
-                    user_input
-                )
-                context.append(f"用户上传的图片分析: {image_info}")
-            except Exception as e:
-                print(f"图片分析失败: {e}")
+            image_info = self.llm.generate_recommendation_based_on_image(
+                query_image_path,
+                user_input
+            )
+            context.append(f"用户上传的图片分析: {image_info}")
         
         # 搜索相关商品
-        try:
-            search_results = self.search(
-                query=user_input,
-                query_image_path=query_image_path,
-                top_k=3
-            )
-            
-            # 构建上下文
-            if search_results:
-                context.append("相关商品:")
-                for i, r in enumerate(search_results, 1):
-                    context.append(f"{i}. {r.get('text', '')}")
-        except Exception as e:
-            print(f"搜索失败: {e}")
+        search_results = self.search(
+            query=user_input,
+            query_image_path=query_image_path,
+            top_k=3
+        )
+        
+        # 构建上下文
+        if search_results:
+            context.append("相关商品:")
+            for i, r in enumerate(search_results, 1):
+                context.append(f"{i}. {r.get('text', '')}")
         
         # 生成回复（这里可以接入LLM生成）
         response = "\n".join(context)
