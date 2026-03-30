@@ -13,8 +13,16 @@ import json
 from typing import List, Dict, Any, Optional
 import requests
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+
+# 尝试导入scikit-learn，如果失败则使用模拟实现
+SKLEARN_AVAILABLE = False
+try:
+    from sklearn.metrics.pairwise import cosine_similarity
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    print("⚠️  scikit-learn not available, image search will be limited")
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -183,7 +191,7 @@ class FreshFoodRecommender:
     
     def _search_by_image(self, image_path: str, limit: int = 20) -> List[Dict[str, Any]]:
         """Search by image using CLIP"""
-        if not CLIP_AVAILABLE or not self.clip_model:
+        if not CLIP_AVAILABLE or not self.clip_model or not SKLEARN_AVAILABLE:
             return []
         
         try:
