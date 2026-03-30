@@ -14,6 +14,15 @@ from typing import List, Dict, Any, Optional
 from enum import Enum
 import io
 
+# 尝试导入openai，如果失败则使用模拟实现
+OPENAI_AVAILABLE = False
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("未找到openai模块，将使用模拟实现")
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
@@ -26,7 +35,6 @@ from .fresh_food_recommender import (
     FreshFoodRecommender,
     DASHSCOPE_API_KEY
 )
-from openai import OpenAI
 
 
 class FreshFoodAgent:

@@ -3,6 +3,7 @@ streamlit
 
 # 多模态LLM
 dashscope
+openai
 
 # 向量数据库
 chromadb
@@ -13,16 +14,13 @@ Pillow
 # 机器学习
 tensorflow
 torch
-scikit-learn
 
 # 推荐系统和数据处理
 langchain
 pandas
 numpy
+scikit-learn
 
 # 其他可能需要的依赖
 requests
 python-dotenv
-lightgbm
-openai
-transformers

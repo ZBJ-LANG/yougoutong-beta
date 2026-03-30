@@ -39,23 +39,16 @@ try:
 except ImportError:
     print("⚠️  Knowledge graph not available")
 
-# Try to import openai
-OPENAI_AVAILABLE = False
-try:
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
-except ImportError:
-    print("⚠️  OpenAI not available, LLM features will be limited")
-
 # Get API key from environment
 DASHSCOPE_API_KEY = os.environ.get('DASHSCOPE_API_KEY', '')
 
 def llm_intent_recognition(user_input: str) -> Dict[str, Any]:
     """LLM-based intent recognition"""
-    if not DASHSCOPE_API_KEY or not OPENAI_AVAILABLE:
+    if not DASHSCOPE_API_KEY:
         return {}
     
     try:
+        from openai import OpenAI
         client = OpenAI(
             api_key=DASHSCOPE_API_KEY,
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -100,10 +93,11 @@ def extract_entities_from_image(image_path: str) -> Dict[str, Any]:
 
 def call_qwen_generate(prompt: str, conversation_history: List[Dict[str, str]]) -> str:
     """Call Qwen for response generation"""
-    if not DASHSCOPE_API_KEY or not OPENAI_AVAILABLE:
-        return "API key or OpenAI not available"
+    if not DASHSCOPE_API_KEY:
+        return "API key not available"
     
     try:
+        from openai import OpenAI
         client = OpenAI(
             api_key=DASHSCOPE_API_KEY,
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
