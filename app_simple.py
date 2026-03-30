@@ -18,6 +18,10 @@ if 'username' not in st.session_state:
     st.session_state.username = ""
 if 'current_module' not in st.session_state:
     st.session_state.current_module = "美妆护肤"
+if 'login_error' not in st.session_state:
+    st.session_state.login_error = ""
+if 'register_success' not in st.session_state:
+    st.session_state.register_success = ""
 
 # 密码加密函数
 def hash_password(password):
@@ -40,6 +44,18 @@ def render_login_page():
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        # 显示错误信息
+        if st.session_state.login_error:
+            st.error(st.session_state.login_error)
+            st.session_state.login_error = ""
+        
+        # 显示注册成功信息
+        if st.session_state.register_success:
+            st.success(st.session_state.register_success)
+            st.session_state.register_success = ""
+        
+        # 登录表单
+        st.subheader("登录")
         username = st.text_input("用户名")
         password = st.text_input("密码", type="password")
         
@@ -50,7 +66,30 @@ def render_login_page():
                 st.session_state.page = "main"
                 st.rerun()
             else:
-                st.error("用户名或密码错误")
+                st.session_state.login_error = "用户名或密码错误"
+                st.rerun()
+        
+        # 切换到注册
+        st.markdown("---")
+        st.subheader("新用户注册")
+        new_username = st.text_input("新用户名")
+        new_password = st.text_input("新密码", type="password")
+        confirm_password = st.text_input("确认密码", type="password")
+        
+        if st.button("注册"):
+            if new_username in USER_DB:
+                st.session_state.login_error = "用户名已存在"
+                st.rerun()
+            elif new_password != confirm_password:
+                st.session_state.login_error = "两次输入的密码不一致"
+                st.rerun()
+            elif len(new_password) < 6:
+                st.session_state.login_error = "密码长度至少6位"
+                st.rerun()
+            else:
+                USER_DB[new_username] = hash_password(new_password)
+                st.session_state.register_success = "注册成功，请登录"
+                st.rerun()
 
 # 主页面
 def render_main_page():
