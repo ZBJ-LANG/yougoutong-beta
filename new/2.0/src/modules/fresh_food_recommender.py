@@ -22,7 +22,6 @@ try:
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    print("⚠️  scikit-learn not available, image search will be limited")
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,7 +36,7 @@ try:
     from PIL import Image
     CLIP_AVAILABLE = True
 except ImportError:
-    print("⚠️  CLIP not available, image search will be limited")
+    CLIP_AVAILABLE = False
 
 # Try to import knowledge graph
 KG_AVAILABLE = False
@@ -45,7 +44,7 @@ try:
     from .fresh_knowledge_graph import FreshKnowledgeGraph
     KG_AVAILABLE = True
 except ImportError:
-    print("⚠️  Knowledge graph not available")
+    KG_AVAILABLE = False
 
 # Get API key from environment
 DASHSCOPE_API_KEY = os.environ.get('DASHSCOPE_API_KEY', '')
@@ -79,7 +78,6 @@ Output JSON:"""
         import json
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        print(f"LLM intent recognition failed: {e}")
         return {}
 
 def extract_entities_from_image(image_path: str) -> Dict[str, Any]:
@@ -96,7 +94,6 @@ def extract_entities_from_image(image_path: str) -> Dict[str, Any]:
             "scene": "daily"
         }
     except Exception as e:
-        print(f"Image entity extraction failed: {e}")
         return {}
 
 def call_qwen_generate(prompt: str, conversation_history: List[Dict[str, str]]) -> str:
@@ -122,7 +119,6 @@ def call_qwen_generate(prompt: str, conversation_history: List[Dict[str, str]]) 
         
         return response.choices[0].message.content
     except Exception as e:
-        print(f"Qwen generation failed: {e}")
         return "AI generation failed"
 
 class FreshFoodRecommender:
@@ -142,17 +138,15 @@ class FreshFoodRecommender:
         # Initialize vector store
         try:
             self.vector_store = SemanticVectorStore()
-            print("✅ Vector store initialized")
         except Exception as e:
-            print(f"⚠️  Vector store initialization failed: {e}")
+            pass
         
         # Initialize knowledge graph
         if KG_AVAILABLE:
             try:
                 self.kg = FreshKnowledgeGraph()
-                print("✅ Knowledge graph initialized")
             except Exception as e:
-                print(f"⚠️  Knowledge graph initialization failed: {e}")
+                pass
         
         # Initialize CLIP (使用本地缓存，避免网络下载)
         if CLIP_AVAILABLE:
@@ -162,28 +156,18 @@ class FreshFoodRecommender:
                 
                 if os.path.exists(local_model_path):
                     # 使用本地模型
-                    print(f"使用本地CLIP模型: {local_model_path}")
                     self.clip_model = CLIPModel.from_pretrained(local_model_path)
                     self.clip_processor = CLIPProcessor.from_pretrained(local_model_path)
-                    print("✅ 本地CLIP模型初始化成功")
-                else:
-                    # 本地模型不存在，跳过初始化
-                    print(f"⚠️  本地CLIP模型不存在: {local_model_path}")
-                    print("⚠️  跳过CLIP初始化，将使用其他推荐方式")
             except Exception as e:
-                print(f"⚠️  CLIP初始化失败: {e}")
-                print("⚠️  跳过CLIP初始化，将使用其他推荐方式")
+                pass
         
         # Load goods data
         try:
             data_path = os.path.join(os.path.dirname(__file__), "..", "data", "goods_info.csv")
             if os.path.exists(data_path):
                 self.goods_df = pd.read_csv(data_path)
-                print(f"✅ Loaded {len(self.goods_df)} goods")
-            else:
-                print("⚠️  Goods data not found")
         except Exception as e:
-            print(f"⚠️  Failed to load goods data: {e}")
+            pass
     
     def _get_kg_client(self):
         """Get knowledge graph client"""
@@ -227,7 +211,6 @@ class FreshFoodRecommender:
             
             return []
         except Exception as e:
-            print(f"Image search failed: {e}")
             return []
     
     def search_by_text_with_filter(self, query: str, product_type: str, top_k: int = 20) -> List[Dict[str, Any]]:
@@ -241,7 +224,6 @@ class FreshFoodRecommender:
                 return results
             return []
         except Exception as e:
-            print(f"Text search with filter failed: {e}")
             return []
     
     def vector_search(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
@@ -251,7 +233,6 @@ class FreshFoodRecommender:
                 return self.vector_store.search(query, top_k=limit)
             return []
         except Exception as e:
-            print(f"Vector search failed: {e}")
             return []
     
     def close(self):
