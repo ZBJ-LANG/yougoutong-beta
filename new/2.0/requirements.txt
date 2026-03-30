@@ -20,6 +20,9 @@ pandas
 numpy
 scikit-learn
 
+# 安全
+bcrypt
+
 # 其他可能需要的依赖
 requests
 python-dotenv
