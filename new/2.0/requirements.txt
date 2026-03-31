@@ -1,26 +1,13 @@
-# 基础依赖
 streamlit
-
-# 多模态LLM
-dashscope>=1.14.0
+dashscope
 openai
-
-# 向量数据库
 chromadb
-
-# 图像处理
 Pillow
-
-# 机器学习
 tensorflow
 torch
-
-# 推荐系统和数据处理
 langchain
 pandas
 numpy
 scikit-learn
-
-# 其他可能需要的依赖
 requests
 python-dotenv
