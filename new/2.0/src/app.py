@@ -943,9 +943,9 @@ def main():
         print("✅ 日志目录已创建")
         print("\n系统启动成功！")
         print("\n请使用以下命令启动 Streamlit 服务器:")
-        print("  streamlit run e:\yougoutongzuizhong\new\2.0\src\app.py")
+        print("  streamlit run e:/yougoutongzuizhong/new/2.0/src/app.py")
         print("\n或使用以下命令启动系统并捕获日志:")
-        print("  python e:\yougoutongzuizhong\new\2.0\src\start_system_and_log.py")
+        print("  python e:/yougoutongzuizhong/new/2.0/src/start_system_and_log.py")
         print("\n系统将在浏览器中运行，访问地址: http://localhost:8501")
 
 
