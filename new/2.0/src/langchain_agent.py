@@ -12,6 +12,16 @@ try:
 except ImportError:
     DASHSCOPE_AVAILABLE = False
 
+# 尝试导入openai，如果失败则使用模拟实现
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
+# 检查是否有可用的LLM
+LLM_AVAILABLE = DASHSCOPE_AVAILABLE or OPENAI_AVAILABLE
+
 # 尝试导入dotenv，如果失败则使用环境变量
 try:
     from dotenv import load_dotenv
@@ -23,13 +33,30 @@ except ImportError:
 
 
 class QwenLLM:
-    """自定义通义千问LLM包装器，简化实现"""
+    """自定义LLM包装器，支持dashscope和openai"""
     
-    def __init__(self, temperature: float = 0.7):
+    def __init__(self, temperature: float = 0.7, api_type: str = "auto"):
         """初始化LLM"""
-        self.model_name = "qwen-plus"
+        self.api_type = api_type
         self.temperature = temperature
         self.max_tokens = 2000
+        
+        # 自动选择可用的API
+        if api_type == "auto":
+            if DASHSCOPE_AVAILABLE:
+                self.api_type = "dashscope"
+                self.model_name = "qwen-plus"
+            elif OPENAI_AVAILABLE:
+                self.api_type = "openai"
+                self.model_name = "gpt-4o"
+            else:
+                self.api_type = "none"
+        elif api_type == "dashscope" and DASHSCOPE_AVAILABLE:
+            self.model_name = "qwen-plus"
+        elif api_type == "openai" and OPENAI_AVAILABLE:
+            self.model_name = "gpt-4o"
+        else:
+            self.api_type = "none"
     
     def invoke(
         self,
@@ -38,29 +65,59 @@ class QwenLLM:
         **kwargs: Any,
     ) -> str:
         """调用模型"""
-        if not DASHSCOPE_AVAILABLE:
-            return "⚠️ 系统提示：dashscope模块未安装，无法调用通义千问模型。请确保已安装dashscope依赖。"
+        if not LLM_AVAILABLE:
+            return "⚠️ 系统提示：未安装任何LLM依赖（dashscope或openai），无法调用模型。"
         
-        try:
-            api_key = os.getenv("DASHSCOPE_API_KEY")
-            if not api_key:
-                return "⚠️ 未配置DASHSCOPE_API_KEY环境变量"
-            
-            dashscope.api_key = api_key
-            
-            response = dashscope.Generation.call(
-                model=self.model_name,
-                prompt=prompt,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens
-            )
-            
-            if response.status_code == 200:
-                return response.output["text"].strip()
-            else:
-                return f"⚠️ API调用失败: {response.message}"
-        except Exception as e:
-            return f"⚠️ 调用异常: {str(e)}"
+        # 使用DashScope
+        if self.api_type == "dashscope" and DASHSCOPE_AVAILABLE:
+            try:
+                api_key = os.getenv("DASHSCOPE_API_KEY")
+                if not api_key:
+                    return "⚠️ 未配置DASHSCOPE_API_KEY环境变量"
+                
+                dashscope.api_key = api_key
+                
+                response = dashscope.Generation.call(
+                    model=self.model_name,
+                    prompt=prompt,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens
+                )
+                
+                if response.status_code == 200:
+                    return response.output["text"].strip()
+                else:
+                    return f"⚠️ API调用失败: {response.message}"
+            except Exception as e:
+                return f"⚠️ 调用异常: {str(e)}"
+        
+        # 使用OpenAI
+        elif self.api_type == "openai" and OPENAI_AVAILABLE:
+            try:
+                api_key = os.getenv("OPENAI_API_KEY")
+                if not api_key:
+                    return "⚠️ 未配置OPENAI_API_KEY环境变量"
+                
+                openai.api_key = api_key
+                
+                response = openai.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    stop=stop
+                )
+                
+                return response.choices[0].message.content.strip()
+            except Exception as e:
+                return f"⚠️ 调用异常: {str(e)}"
+        
+        return "⚠️ 系统提示：无法调用模型，请检查API配置。"
 
 
 class RecommendationAgent:

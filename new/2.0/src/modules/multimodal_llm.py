@@ -2,53 +2,94 @@
 # -*- coding: utf-8 -*-
 """
 多模态LLM理解模块
-使用通义千问VL模型理解图片内容
+使用通义千问VL模型或OpenAI API理解图片内容
 """
 
 import os
 import json
 from typing import Dict, Any, List, Optional
 
-# 模块级变量，用于标识dashscope是否可用
+# 模块级变量，用于标识dashscope和openai是否可用
 DASHSCOPE_AVAILABLE = False
+OPENAI_AVAILABLE = False
 
-# 延迟导入dashscope，避免模块级导入失败
+# 尝试导入dashscope
+print("[INFO] 尝试导入dashscope...")
 try:
     import dashscope
     from dashscope import MultiModalConversation
     DASHSCOPE_AVAILABLE = True
-    print(f"[DEBUG] dashscope版本: {dashscope.__version__}")
+    print("[INFO] dashscope导入成功")
 except ImportError:
-    # 模块级导入失败时，设置为不可用，但允许模块本身被导入
     DASHSCOPE_AVAILABLE = False
-    print("[WARNING] dashscope模块未安装，将使用模拟实现")
+    print("[WARNING] dashscope模块未安装")
+
+# 尝试导入openai
+print("[INFO] 尝试导入openai...")
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+    print("[INFO] openai导入成功")
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("[WARNING] openai模块未安装")
+
+# 检查是否有可用的多模态LLM
+MULTIMODAL_AVAILABLE = DASHSCOPE_AVAILABLE or OPENAI_AVAILABLE
 
 class MultimodalLLM:
     """多模态大语言模型"""
     
-    def __init__(self, api_key: str = None):
-        """初始化通义千问VL模型
+    def __init__(self, api_key: str = None, api_type: str = "auto"):
+        """初始化多模态LLM模型
         
         Args:
-            api_key: DashScope API密钥，默认从环境变量读取
+            api_key: API密钥，默认从环境变量读取
+            api_type: API类型，可选值: "auto", "dashscope", "openai"
         """
-        if not DASHSCOPE_AVAILABLE:
-            return
+        self.api_type = api_type
+        self.model = None
         
-        if api_key:
-            dashscope.api_key = api_key
-        elif not dashscope.api_key:
-            # 尝试从.env文件读取
-            env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
-            if os.path.exists(env_path):
-                with open(env_path) as f:
-                    for line in f:
-                        if "DASHSCOPE_API_KEY" in line:
-                            api_key = line.split("=")[1].strip()
-                            dashscope.api_key = api_key
-                            break
+        # 自动选择可用的API
+        if api_type == "auto":
+            if DASHSCOPE_AVAILABLE:
+                self.api_type = "dashscope"
+            elif OPENAI_AVAILABLE:
+                self.api_type = "openai"
+            else:
+                return
         
-        self.model = "qwen-vl-plus"
+        # 初始化DashScope
+        if self.api_type == "dashscope" and DASHSCOPE_AVAILABLE:
+            if api_key:
+                dashscope.api_key = api_key
+            elif not hasattr(dashscope, 'api_key') or not dashscope.api_key:
+                # 尝试从.env文件读取
+                env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+                if os.path.exists(env_path):
+                    with open(env_path) as f:
+                        for line in f:
+                            if "DASHSCOPE_API_KEY" in line:
+                                api_key = line.split("=")[1].strip()
+                                dashscope.api_key = api_key
+                                break
+            self.model = "qwen-vl-plus"
+        
+        # 初始化OpenAI
+        elif self.api_type == "openai" and OPENAI_AVAILABLE:
+            if api_key:
+                openai.api_key = api_key
+            elif not openai.api_key:
+                # 尝试从.env文件读取
+                env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+                if os.path.exists(env_path):
+                    with open(env_path) as f:
+                        for line in f:
+                            if "OPENAI_API_KEY" in line:
+                                api_key = line.split("=")[1].strip()
+                                openai.api_key = api_key
+                                break
+            self.model = "gpt-4o"  # 使用支持图片的OpenAI模型
     
     def analyze_image(self, 
                      image_path: str, 
@@ -62,7 +103,7 @@ class MultimodalLLM:
         Returns:
             图片描述
         """
-        if not DASHSCOPE_AVAILABLE:
+        if not MULTIMODAL_AVAILABLE:
             return "多模态LLM不可用"
         
         import base64
@@ -85,33 +126,66 @@ class MultimodalLLM:
         # 使用base64格式
         image_base64 = image_to_base64(image_path)
         
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"image": f"data:{mime_type};base64,{image_base64}"},
-                    {"text": prompt}
-                ]
-            }
-        ]
-        
-        try:
-            response = MultiModalConversation.call(
-                model=self.model,
-                messages=messages
-            )
+        # 使用DashScope
+        if self.api_type == "dashscope" and DASHSCOPE_AVAILABLE:
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"image": f"data:{mime_type};base64,{image_base64}"},
+                        {"text": prompt}
+                    ]
+                }
+            ]
             
-            if response.status_code == 200:
-                content = response.output.choices[0].message.content
-                if isinstance(content, list) and len(content) > 0:
-                    text_content = content[0].get("text", "")
-                    if text_content:
-                        return text_content
-                return str(content)
-            else:
-                return f"图片分析失败: {response.message}"
-        except Exception as e:
-            return f"图片分析出错: {str(e)}"
+            try:
+                response = MultiModalConversation.call(
+                    model=self.model,
+                    messages=messages
+                )
+                
+                if response.status_code == 200:
+                    content = response.output.choices[0].message.content
+                    if isinstance(content, list) and len(content) > 0:
+                        text_content = content[0].get("text", "")
+                        if text_content:
+                            return text_content
+                    return str(content)
+                else:
+                    return f"图片分析失败: {response.message}"
+            except Exception as e:
+                return f"图片分析出错: {str(e)}"
+        
+        # 使用OpenAI
+        elif self.api_type == "openai" and OPENAI_AVAILABLE:
+            try:
+                response = openai.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:{mime_type};base64,{image_base64}"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=1000
+                )
+                
+                return response.choices[0].message.content.strip()
+            except Exception as e:
+                return f"图片分析出错: {str(e)}"
+        
+        return "多模态LLM不可用"
     
     def extract_product_info(self, image_path: str, category: str = None) -> Dict[str, Any]:
         """从图片中提取商品信息
@@ -123,7 +197,7 @@ class MultimodalLLM:
         Returns:
             商品信息字典
         """
-        if not DASHSCOPE_AVAILABLE:
+        if not MULTIMODAL_AVAILABLE:
             return {
                 "product_type": "unknown",
                 "specific_name": "unknown",
@@ -195,7 +269,7 @@ class MultimodalLLM:
         Returns:
             比较结果
         """
-        if not DASHSCOPE_AVAILABLE:
+        if not MULTIMODAL_AVAILABLE:
             return "多模态LLM不可用"
         
         messages = [
@@ -241,7 +315,7 @@ class MultimodalLLM:
         Returns:
             推荐信息字典
         """
-        if not DASHSCOPE_AVAILABLE:
+        if not MULTIMODAL_AVAILABLE:
             return {
                 "recommendation_reason": "多模态LLM不可用",
                 "error": "多模态LLM不可用"
@@ -277,7 +351,7 @@ class MultimodalRAG:
     
     def __init__(self):
         """初始化多模态RAG系统"""
-        if not DASHSCOPE_AVAILABLE:
+        if not MULTIMODAL_AVAILABLE:
             self.multimodal_vdb = None
             self.llm = None
             self.text_rag = None
@@ -318,7 +392,7 @@ class MultimodalRAG:
         Returns:
             搜索结果列表
         """
-        if not DASHSCOPE_AVAILABLE:
+        if not MULTIMODAL_AVAILABLE:
             return []
         
         results = []
@@ -381,7 +455,7 @@ class MultimodalRAG:
         Returns:
             推荐回复
         """
-        if not DASHSCOPE_AVAILABLE:
+        if not MULTIMODAL_AVAILABLE:
             return "多模态LLM不可用"
         
         context = []
