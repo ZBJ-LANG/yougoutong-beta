@@ -64,15 +64,20 @@ class MultimodalLLM:
             if api_key:
                 dashscope.api_key = api_key
             elif not hasattr(dashscope, 'api_key') or not dashscope.api_key:
-                # 尝试从.env文件读取
-                env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
-                if os.path.exists(env_path):
-                    with open(env_path) as f:
-                        for line in f:
-                            if "DASHSCOPE_API_KEY" in line:
-                                api_key = line.split("=")[1].strip()
-                                dashscope.api_key = api_key
-                                break
+                # 1. 尝试从系统环境变量读取
+                api_key = os.environ.get("DASHSCOPE_API_KEY")
+                if api_key:
+                    dashscope.api_key = api_key
+                # 2. 尝试从.env文件读取
+                else:
+                    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+                    if os.path.exists(env_path):
+                        with open(env_path) as f:
+                            for line in f:
+                                if "DASHSCOPE_API_KEY" in line:
+                                    api_key = line.split("=")[1].strip()
+                                    dashscope.api_key = api_key
+                                    break
             self.model = "qwen-vl-plus"
         
         # 初始化OpenAI
@@ -80,15 +85,20 @@ class MultimodalLLM:
             if api_key:
                 openai.api_key = api_key
             elif not openai.api_key:
-                # 尝试从.env文件读取
-                env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
-                if os.path.exists(env_path):
-                    with open(env_path) as f:
-                        for line in f:
-                            if "OPENAI_API_KEY" in line:
-                                api_key = line.split("=")[1].strip()
-                                openai.api_key = api_key
-                                break
+                # 1. 尝试从系统环境变量读取
+                api_key = os.environ.get("OPENAI_API_KEY")
+                if api_key:
+                    openai.api_key = api_key
+                # 2. 尝试从.env文件读取
+                else:
+                    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+                    if os.path.exists(env_path):
+                        with open(env_path) as f:
+                            for line in f:
+                                if "OPENAI_API_KEY" in line:
+                                    api_key = line.split("=")[1].strip()
+                                    openai.api_key = api_key
+                                    break
             self.model = "gpt-4o"  # 使用支持图片的OpenAI模型
     
     def analyze_image(self, 
