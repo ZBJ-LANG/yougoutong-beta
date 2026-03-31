@@ -1,4 +1,5 @@
 streamlit==1.35.0
+dashscope==1.16.0
 openai==1.30.0
 chromadb==1.5.0
 Pillow==10.2.0
