@@ -2,7 +2,7 @@
 streamlit
 
 # 多模态LLM
-dashscope
+dashscope>=1.14.0
 openai
 
 # 向量数据库
