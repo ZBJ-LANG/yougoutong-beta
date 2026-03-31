@@ -22,36 +22,7 @@ try:
     print("[INFO] dashscope导入成功")
 except ImportError:
     DASHSCOPE_AVAILABLE = False
-    print("[WARNING] dashscope模块未安装，尝试自动安装...")
-    
-    # 尝试自动安装dashscope
-    try:
-        import subprocess
-        import sys
-        print("[INFO] 正在安装dashscope...")
-        # 使用sys.executable确保使用正确的pip
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "dashscope>=1.14.0"],
-            capture_output=True,
-            text=True
-        )
-        print(f"[INFO] 安装结果: {result.returncode}")
-        print(f"[INFO] 安装输出: {result.stdout}")
-        if result.stderr:
-            print(f"[WARNING] 安装警告: {result.stderr}")
-        
-        # 安装后尝试重新导入
-        if result.returncode == 0:
-            import importlib
-            importlib.invalidate_caches()
-            import dashscope
-            from dashscope import MultiModalConversation
-            DASHSCOPE_AVAILABLE = True
-            print("[SUCCESS] dashscope安装成功")
-        else:
-            print("[ERROR] dashscope安装失败")
-    except Exception as e:
-        print(f"[ERROR] 自动安装dashscope时出错: {e}")
+    print("[WARNING] dashscope模块未安装，将使用OpenAI作为备选")
 
 # 尝试导入openai
 print("[INFO] 尝试导入openai...")
