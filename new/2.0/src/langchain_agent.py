@@ -11,7 +11,6 @@ try:
     DASHSCOPE_AVAILABLE = True
 except ImportError:
     DASHSCOPE_AVAILABLE = False
-    print("未找到dashscope模块，将使用模拟实现")
 
 # 尝试导入dotenv，如果失败则使用环境变量
 try:
@@ -19,9 +18,8 @@ try:
     # 显式指定.env文件路径，并强制覆盖已存在的环境变量
     env_path = os.path.join(os.path.dirname(__file__), '.env')
     load_dotenv(env_path, override=True)
-    print(f"已从{env_path}加载配置，DASHSCOPE_API_KEY已设置")
 except ImportError:
-    print("未找到dotenv模块，将直接使用环境变量")
+    pass
 
 
 class QwenLLM:
