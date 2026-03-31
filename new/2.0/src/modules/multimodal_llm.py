@@ -9,42 +9,19 @@ import os
 import json
 from typing import Dict, Any, List, Optional
 
-# 尝试导入dashscope，如果失败则使用模拟实现
+# 模块级变量，用于标识dashscope是否可用
 DASHSCOPE_AVAILABLE = False
+
+# 延迟导入dashscope，避免模块级导入失败
 try:
     import dashscope
     from dashscope import MultiModalConversation
     DASHSCOPE_AVAILABLE = True
     print(f"[DEBUG] dashscope版本: {dashscope.__version__}")
-except ImportError as e:
-    print(f"[ERROR] 导入dashscope失败: {e}")
-    import traceback
-    traceback.print_exc()
+except ImportError:
+    # 模块级导入失败时，设置为不可用，但允许模块本身被导入
     DASHSCOPE_AVAILABLE = False
-    
-    # 尝试使用pip安装dashscope
-    try:
-        import subprocess
-        print("[INFO] 尝试自动安装dashscope...")
-        result = subprocess.run(
-            ["pip", "install", "dashscope"],
-            capture_output=True,
-            text=True
-        )
-        print(f"[DEBUG] 安装结果: {result.returncode}")
-        print(f"[DEBUG] 安装输出: {result.stdout}")
-        print(f"[DEBUG] 安装错误: {result.stderr}")
-        
-        # 安装后再次尝试导入
-        if result.returncode == 0:
-            import importlib
-            importlib.invalidate_caches()
-            import dashscope
-            from dashscope import MultiModalConversation
-            DASHSCOPE_AVAILABLE = True
-            print("[SUCCESS] 自动安装dashscope成功")
-    except Exception as install_error:
-        print(f"[ERROR] 自动安装dashscope失败: {install_error}")
+    print("[WARNING] dashscope模块未安装，将使用模拟实现")
 
 class MultimodalLLM:
     """多模态大语言模型"""
